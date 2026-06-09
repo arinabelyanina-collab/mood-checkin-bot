@@ -1,0 +1,54 @@
+name: Respond to messages
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  respond:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get updates and respond
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+        run: |
+          python3 << 'EOF'
+          import os, json, time, urllib.request, urllib.parse
+
+          token = os.environ['TOKEN']
+          now = int(time.time())
+          window = 35 * 60  # 35 minutes
+
+          req = urllib.request.urlopen(
+              'https://api.telegram.org/bot' + token + '/getUpdates?timeout=0'
+          )
+          data = json.loads(req.read())
+
+          last_update_id = None
+
+          for update in data.get('result', []):
+              last_update_id = update['update_id']
+              msg = update.get('message')
+              if not msg:
+                  continue
+              if now - msg.get('date', 0) > window:
+                  continue
+              chat_id = msg['chat']['id']
+              reply = 'Спасибо, что ответил(а)! Я вернусь позже 🌱'
+              params = urllib.parse.urlencode({'chat_id': chat_id, 'text': reply})
+              urllib.request.urlopen(
+                  urllib.request.Request(
+                      'https://api.telegram.org/bot' + token + '/sendMessage',
+                      data=params.encode()
+                  )
+              )
+              print('Replied to chat', chat_id)
+
+          if last_update_id is not None:
+              urllib.request.urlopen(
+                  'https://api.telegram.org/bot' + token +
+                  '/getUpdates?offset=' + str(last_update_id + 1) + '&timeout=0'
+              )
+              print('Acknowledged up to update', last_update_id)
+          EOF
