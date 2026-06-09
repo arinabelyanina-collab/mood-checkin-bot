@@ -1,0 +1,48 @@
+name: Send check-in message
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 14 * * *'
+    - cron: '0 17 * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Random delay
+        run: |
+          DELAY=$(python3 -c "import random; print(random.randint(0, 10799))")
+          echo "Sleeping $DELAY seconds..."
+          sleep $DELAY
+
+      - name: Send check-in
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: |
+          python3 << 'EOF'
+          import os, random, urllib.request, urllib.parse
+
+          token = os.environ['TOKEN']
+          chat_id = os.environ['CHAT_ID']
+
+          questions = [
+              'Привет 🌿 Как ты сейчас себя чувствуешь?',
+              'Эй, я тут 💙 Как ты сейчас?',
+              'Момент для паузы ✨ Как твоё состояние прямо сейчас?',
+              'Останови на секунду 🌸 Что происходит внутри?',
+              'Просто хочу спросить 💚 Как ты?',
+          ]
+
+          text = random.choice(questions)
+          params = urllib.parse.urlencode({'chat_id': chat_id, 'text': text})
+          req = urllib.request.Request(
+              'https://api.telegram.org/bot' + token + '/sendMessage',
+              data=params.encode()
+          )
+          urllib.request.urlopen(req)
+          print('Sent:', text)
+          EOF
