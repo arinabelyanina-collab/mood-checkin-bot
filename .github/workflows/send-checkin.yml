@@ -1,0 +1,58 @@
+name: Send check-in message
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+    - cron: '24 10 * * *'
+    - cron: '48 12 * * *'
+    - cron: '12 15 * * *'
+    - cron: '36 17 * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delay and send
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: |
+          python3 << 'EOF'
+          import os, random, time, urllib.request, urllib.parse, datetime
+
+          # Only send between 11:00 and 23:00 MSK (UTC+3)
+          now_msk = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
+          if not (11 <= now_msk.hour < 23):
+              print(f"Outside hours ({now_msk.hour}:00 MSK), skipping.")
+              exit(0)
+
+          delay = random.randint(0, 8639)
+          print(f"Sleeping {delay} seconds...")
+          time.sleep(delay)
+
+          token = os.environ['TOKEN']
+          chat_id = os.environ['CHAT_ID']
+
+          questions = [
+              'Привет 🌿 Как ты сейчас себя чувствуешь?',
+              'Есть ли сейчас где-то напряжение в теле? 💙',
+              'Как дышится прямо сейчас — глубоко или поверхностно? 🌬️',
+              'Что сейчас происходит в твоём теле? 🌊',
+              'Где сейчас живёт твоё настроение — в груди, голове, животе? ✨',
+              'Есть ли сейчас ощущение тяжести или лёгкости в теле? 🍃',
+              'Замечаешь ли тепло или холод где-то в теле прямо сейчас? 🌸',
+              'Как твоё тело ощущает себя в этот момент? 💚',
+              'Есть ли что-то, что зажато или, наоборот, расслаблено в теле? 🌙',
+              'Останови на секунду и почувствуй: что сейчас внутри? 🌱',
+          ]
+
+          text = random.choice(questions)
+          params = urllib.parse.urlencode({'chat_id': chat_id, 'text': text})
+          req = urllib.request.Request(
+              'https://api.telegram.org/bot' + token + '/sendMessage',
+              data=params.encode()
+          )
+          urllib.request.urlopen(req)
+          print('Sent:', text)
+          EOF
