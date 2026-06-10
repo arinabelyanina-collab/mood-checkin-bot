@@ -17,22 +17,18 @@ jobs:
         env:
           TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
-          EVENT_NAME: ${{ github.event_name }}
         run: |
           python3 << 'EOF'
           import os, random, time, urllib.request, urllib.parse, datetime
 
-          # Only send between 11:00 and 23:00 MSK (UTC+3)
           now_msk = datetime.datetime.utcnow() + datetime.timedelta(hours=3)
           if not (11 <= now_msk.hour < 23):
               print(f"Outside hours ({now_msk.hour}:00 MSK), skipping.")
               exit(0)
 
-          # Random delay only for scheduled runs, not manual
-          if os.environ.get('EVENT_NAME') == 'schedule':
-              delay = random.randint(0, 8639)
-              print(f"Sleeping {delay} seconds...")
-              time.sleep(delay)
+          delay = random.randint(0, 3600)
+          print(f"Sleeping {delay} seconds (~{delay//60} min)...")
+          time.sleep(delay)
 
           token = os.environ['TOKEN']
           chat_id = os.environ['CHAT_ID']
