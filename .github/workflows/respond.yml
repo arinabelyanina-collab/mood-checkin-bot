@@ -1,8 +1,6 @@
 name: Respond to messages
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -12,30 +10,50 @@ jobs:
       - name: Get updates and respond
         env:
           TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: |
           python3 << 'EOF'
-          import os, json, time, urllib.request, urllib.parse
+          import os, json, time, random, urllib.request, urllib.parse
 
           token = os.environ['TOKEN']
+          chat_id = str(os.environ['CHAT_ID'])
           now = int(time.time())
-          window = 35 * 60  # 35 minutes
+          window = 7 * 60  # 7 minutes safety window
 
           req = urllib.request.urlopen(
               'https://api.telegram.org/bot' + token + '/getUpdates?timeout=0'
           )
           data = json.loads(req.read())
+          updates = data.get('result', [])
 
           last_update_id = None
+          responded = False
 
-          for update in data.get('result', []):
+          responses = [
+              'Слышу тебя 🌿 Вернусь позже.',
+              'Принято 💙 Спасибо, что поделилась.',
+              'Понял тебя 🌱 До следующего раза.',
+              'Спасибо за ответ 🌸 Буду рядом.',
+              'Услышал 💚 Возвращайся к себе.',
+              'Записал 🌙 Увидимся позже.',
+          ]
+
+          for update in updates:
               last_update_id = update['update_id']
               msg = update.get('message')
               if not msg:
                   continue
+              # Only from our chat
+              if str(msg.get('chat', {}).get('id')) != chat_id:
+                  continue
+              # Safety: only recent messages
               if now - msg.get('date', 0) > window:
                   continue
-              chat_id = msg['chat']['id']
-              reply = 'Спасибо, что ответил(а)! Я вернусь позже 🌱'
+              # Respond only once per run
+              if responded:
+                  continue
+
+              reply = random.choice(responses)
               params = urllib.parse.urlencode({'chat_id': chat_id, 'text': reply})
               urllib.request.urlopen(
                   urllib.request.Request(
@@ -43,12 +61,16 @@ jobs:
                       data=params.encode()
                   )
               )
-              print('Replied to chat', chat_id)
+              print('Replied:', reply)
+              responded = True
 
+          # Mark all updates as processed (Telegram won't return them again)
           if last_update_id is not None:
               urllib.request.urlopen(
                   'https://api.telegram.org/bot' + token +
                   '/getUpdates?offset=' + str(last_update_id + 1) + '&timeout=0'
               )
-              print('Acknowledged up to update', last_update_id)
+              print('Marked updates up to', last_update_id)
+
+          print('Done.' if responded else 'No new messages.')
           EOF
